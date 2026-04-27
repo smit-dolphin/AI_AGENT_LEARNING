@@ -1,5 +1,11 @@
 import os
 import re
+import google.generativeai as genai
+
+# Configure Gemini API from environment variable
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 def read_file(path: str) -> str:
     """Reads full PHP file content."""
@@ -35,7 +41,45 @@ def find_undocumented(code: str) -> list[str]:
     return results
 
 def generate_docblock(function_source: str) -> str:
-    """Uses Local Fast Engine to strictly generate a docblock given one function's source."""
+    """Uses Gemini AI to generate a proper PHPDoc block for the given function."""
+    # If no API key, fall back to local engine
+    if not GEMINI_API_KEY:
+        return _local_generate_docblock(function_source)
+    
+    try:
+        # Create the prompt for Gemini
+        prompt = f"""Generate a proper PHPDoc block for the following PHP function. 
+Only output the docblock, nothing else. Use the standard PHPDoc format with @param and @return tags.
+
+PHP Function:
+```php
+{function_source}
+```
+
+Docblock:"""
+
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(prompt)
+        
+        # Clean up the response - extract just the docblock
+        docblock = response.text.strip()
+        
+        # Ensure it starts with /** and ends with */
+        if not docblock.startswith('/**'):
+            docblock = "/**\n * " + docblock
+        if not docblock.endswith('*/'):
+            docblock = docblock + "\n */"
+            
+        return docblock
+        
+    except Exception as e:
+        print(f"Gemini API error: {e}")
+        # Fall back to local engine on error
+        return _local_generate_docblock(function_source)
+
+def _local_generate_docblock(function_source: str) -> str:
+    """Local fallback engine to generate a docblock given one function's source."""
     match = re.search(r'function\s+([a-zA-Z0-9_]+)\s*\((.*?)\)', function_source)
     if not match:
         name = "function"

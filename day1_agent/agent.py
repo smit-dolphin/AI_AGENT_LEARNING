@@ -1,10 +1,21 @@
 import json
 import tools
+import os
+from dotenv import load_dotenv
+
+# Load API key from .env
+load_dotenv()
 
 MAX_ITERATIONS = 20
 
 def main():
-    print(f"Starting Agent (Local Fast-Execution Mode)... Max Iterations: {MAX_ITERATIONS}")
+    # Check if Gemini API is configured
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    mode = "Gemini AI" if api_key else "Local Fallback"
+    
+    print(f"Starting Agent ({mode} Mode)... Max Iterations: {MAX_ITERATIONS}")
+    if not api_key:
+        print("Warning: GEMINI_API_KEY not found. Using local fallback engine.")
     
     # 1. READ FILE
     print("\n--- Iteration 1 ---")
@@ -20,13 +31,13 @@ def main():
     undoc = tools.find_undocumented(code)
     print(f"[Observe]: Tool Output -> {json.dumps(undoc)}")
     
-    # 3. GENERATE DOCBLOCKS
+    # 3. GENERATE DOCBLOCKS (ReAct Loop)
     iteration = 3
     final_code_lines = code.split('\n')
     
     for func in undoc:
         print(f"\n--- Iteration {iteration} ---")
-        print(f"[Thought]: Generating docblock for '{func}' one at a time.")
+        print(f"[Thought]: I need to generate a docblock for '{func}'. Let me analyze the function signature and generate appropriate documentation using AI.")
         
         # Safely extract the target line source
         source_line = ""
@@ -36,8 +47,12 @@ def main():
                 source_line = line.strip()
                 insert_idx = idx
                 break
-                
+        
         print(f"[Act]: Tool generate_docblock called with arguments: {json.dumps({'function_source': source_line})}")
+        
+        if api_key:
+            print(f"[AI Thinking]: Analyzing function '{func}' to generate proper PHPDoc...")
+        
         docblock = tools.generate_docblock(source_line)
         print(f"[Observe]: Tool Output -> \n{docblock}")
         
