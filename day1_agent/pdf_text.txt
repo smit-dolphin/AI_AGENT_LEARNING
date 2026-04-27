@@ -1,0 +1,256 @@
+DAY 1  ·  AGENTIC AI ARCHITECTURE 
+Practical Task Document 
+PHP Codebase Documentation Agent  
+Dolphin Web Solution    |    Duration: 40 minutes    |    Jigar Joshi 
+ 
+Your role during this practical 
+Reason properly — before you write any code, think through what the agent needs to do and why 
+Observe properly — after every tool call, read the output carefully before deciding the next step 
+The agent's behaviour reflects the quality of your thinking, not the quality of the LLM 
+ 
+ 
+ 
+01  The Problem You Are Solving 
+ 
+Dolphin Web Solution's Laravel and Magento controllers have inconsistent docblock coverage. Developers waste 
+time reading implementation code to understand what a function does instead of reading its documentation. 
+New developers take longer to onboard because the codebase is largely undocumented. 
+ 
+You will build an agent that reads a PHP controller file, identifies every function that is missing a docblock, 
+generates correct documentation for each one, and writes the updated file back to disk — without a human 
+directing each individual step. 
+ 
+02  What You Are Building 
+ 
+A working agent loop in Python using the Claude API. The agent will: 
+ 
+—  Read a PHP controller file from disk 
+—  Scan the code and identify functions that have no docblock 
+—  Generate a proper PHP docblock for each undocumented function 
+—  Write the fully documented file back to disk 
+—  Stop automatically when every function has been documented 
+ 
+03  File Structure to Create 
+ 
+Create this folder structure before you begin: 
+ 
+day1_agent/ 
+├── agent.py          ← the main agent loop 
+├── tools.py          ← the four tools the agent calls 
+├── sample_controller.php   ← the PHP file your agent will document 
+└── .env              ← your ANTHROPIC_API_KEY 
+ 
+04  The Four Tools 
+ 
+Your agent will have exactly four tools available to it. You will implement these in tools.py. Each tool has one 
+job. Do not combine them. 
+ 
+Tool What it does Returns 
+read_file(path) Reads a PHP file from disk and 
+returns its full contents as a string 
+String — raw PHP source 
+code 
+find_undocumented(code) Parses the PHP source and returns 
+a list of all function names that 
+have no docblock immediately 
+above them 
+List of function name 
+strings 
+generate_docblock(function_source) Receives the full source of one 
+function. Generates and returns a 
+correctly formatted PHP docblock 
+for it 
+String — the docblock 
+text only 
+write_file(path, code) Writes the updated PHP source 
+string back to disk, overwriting the 
+original file 
+Boolean — True if write 
+succeeded 
+ 
+05  The Agent Loop 
+ 
+Your agent.py must follow the ReAct pattern. The loop runs until the agent decides the task is done or until it 
+hits the maximum iteration limit. Do not let the agent run forever. 
+ 
+The three questions your agent must answer at every iteration 
+Think:    What do I know right now? What is the next action I need to take? 
+Act:      Which tool should I call? With exactly what input? 
+Observe:  What did the tool return? Does this change what I need to do next? 
+ 
+Required agent behaviour: 
+ 
+—  Call read_file first — the agent must read the file before it can find anything 
+—  Call find_undocumented after reading — the agent must know which functions need documentation 
+—  Call generate_docblock for each undocumented function — one call per function, not all at once 
+—  Call write_file once all docblocks have been generated and inserted into the source 
+—  Stop when the task is complete — the agent signals end_turn when done 
+—  Stop if max_iterations is reached — set this to 20 and never remove it 
+ 
+06  The PHP File Your Agent Will Document 
+ 
+Create this file as sample_controller.php in your project folder. This is the file your agent will read and 
+document. It has four functions — three are missing docblocks, one already has one. 
+ 
+<?php 
+ 
+class ProductController { 
+ 
+    /** 
+     * Get all active products from the catalog. 
+     * 
+     * @return array 
+     */ 
+    public function getActiveProducts() { 
+        return Product::where('status', 'active')->get(); 
+    } 
+ 
+    public function getProductById($id) { 
+        return Product::find($id); 
+    } 
+ 
+    public function updateStock($sku, $quantity) { 
+        $product = Product::where('sku', $sku)->first(); 
+        $product->stock = $quantity; 
+        $product->save(); 
+        return $product; 
+    } 
+ 
+    public function createSupportTicket($customerId, $issue) { 
+        return SupportTicket::create([ 
+            'customer_id' => $customerId, 
+            'issue'       => $issue, 
+            'status'      => 'open', 
+        ]); 
+    } 
+ 
+} 
+ 
+What your agent should detect 
+getActiveProducts     — already has a docblock. Agent must leave this one alone. 
+getProductById        — no docblock. Agent must generate one. 
+updateStock           — no docblock. Agent must generate one. 
+createSupportTicket   — no docblock. Agent must generate one. 
+ 
+07  Expected Output 
+ 
+When your agent completes its task correctly, the following things will be true: 
+ 
+What to check What you should see 
+Terminal output The agent prints each tool call and its result. You can see 
+every step it took. 
+Number of loop iterations The agent should complete in 6 to 10 iterations. If it takes 
+more than 15, something is wrong with your observe step. 
+The PHP file on disk Open sample_controller.php after the agent finishes. All four 
+functions now have docblocks. The existing docblock on 
+getActiveProducts is unchanged. 
+Docblock format Each generated docblock starts with /**, has a description 
+line, lists parameters with @param, and lists the return type 
+with @return. 
+Agent exit The agent's stop_reason is end_turn — it decided the task 
+was complete, it was not killed by the iteration limit. 
+ 
+08  Observe Checkpoint — Do This After Every Tool Call 
+ 
+This is the most important discipline in this practical. After every tool call, before you write the next line of code, 
+answer these questions out loud or in a comment: 
+ 
+Step After calling Observe this 
+1 read_file() Is the returned string the correct PHP file? Is it complete? How 
+many functions can you see in it? 
+2 find_undocumented() How many functions came back? Are the names correct? Is 
+getActiveProducts absent from the list? 
+3 generate_docblock() 
+x1 
+Does the returned docblock start with /**? Does it describe what 
+the function actually does? Are the @param types correct? 
+4 generate_docblock() 
+x2 
+Same check. Is each docblock unique to that function or is the 
+agent copying the same one? 
+5 generate_docblock() 
+x3 
+Same check for the third function. 
+6 write_file() Did it return True? Now open the actual file on disk and read it. 
+Are all three docblocks present and correctly placed? 
+ 
+09  Reasoning Checkpoints — Before You Write Each Part 
+ 
+Work through these questions before you write each section of code. Do not skip them. This is the Think step of 
+ReAct. 
+ 
+Before you write tools.py 
+—  What should read_file return if the path does not exist? Should it crash or return an empty string and a 
+message? 
+—  How will find_undocumented know a function is missing a docblock? What pattern are you checking for? 
+—  What if a function has a comment but not a proper docblock — does your tool treat those the same? 
+—  What does write_file return if the disk write fails? The agent needs to know. 
+ 
+Before you write agent.py 
+—  How does the agent know when ALL functions have been documented? What is the specific condition? 
+—  What happens if find_undocumented returns an empty list on the first call — how should the agent react? 
+—  Should the agent call generate_docblock once for all functions or once per function? What is the risk of 
+doing it all at once? 
+—  Where in the loop do you inject the tool result back into the messages array? If you do not, the agent 
+cannot observe what happened. 
+ 
+Before you run the agent 
+—  What do you expect to see in the terminal on iteration 1? On iteration 2? 
+—  What is the maximum number of iterations this task should take? Why? 
+—  What will you check first if the agent finishes but the PHP file on disk looks wrong? 
+ 
+10  Common Mistakes to Avoid 
+ 
+Mistake Why it breaks the agent 
+Not appending tool results to 
+messages 
+The agent has no memory of what the tool returned. It will 
+repeat the same tool call in the next iteration. 
+Calling generate_docblock on all 
+functions at once 
+The agent loses the ability to observe each result individually. If 
+one fails, everything fails and you cannot tell which one. 
+No max_iterations guard The agent loops indefinitely if something goes wrong. Your API 
+costs grow with every iteration. 
+find_undocumented returns the 
+wrong list 
+If it includes getActiveProducts, the agent will overwrite an 
+existing correct docblock. If it misses a function, the task never 
+completes. 
+write_file called before all docblocks 
+are ready 
+The agent writes a partially documented file to disk. 
+Subsequent iterations may re-read the file and get confused 
+about what is still missing. 
+Not reading the tool output before 
+moving on 
+The agent acts on stale information. The Observe step is not 
+optional — it is the reason the loop works. 
+ 
+11  Completion Criteria 
+ 
+You have completed this practical when all of the following are true: 
+ 
+1.  The agent loop runs without error from start to finish 
+2.  The terminal shows each tool call and its result printed in order 
+3.  The PHP file on disk has docblocks on all four functions 
+4.  The existing docblock on getActiveProducts is word-for-word unchanged 
+5.  Each new docblock has a description, @param lines for every parameter, and a @return line 
+6.  The agent's final stop_reason is end_turn — not a max_iterations cutoff 
+7.  You can explain out loud, without looking at your code, what happened at each iteration 
+ 
+12  Extension Tasks — If You Finish Early 
+ 
+These are not required. Attempt them only after the main task is fully working. 
+ 
+—  Make the agent verify its own work — after write_file, call read_file again and call find_undocumented 
+again to confirm the list is empty 
+—  Make the agent handle a file with zero undocumented functions — it should detect this immediately and 
+exit cleanly 
+—  Change the PHP file to have a syntax error — observe how your agent handles an unexpected tool result 
+—  Add a fifth function with a partial comment above it (not a proper docblock) — does your 
+find_undocumented tool catch it? 
+ 
+ 
+ 
+Day 1  ·  Agentic AI Architecture  ·  Jigar Joshi  ·  Dolphin Web Solution 
