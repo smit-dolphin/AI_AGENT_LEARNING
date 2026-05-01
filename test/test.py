@@ -32,7 +32,7 @@ while(1):
         ]
     )
 
-    print(
+    print( "\n",
      response.choices[0]
-     .message.content
+     .message.content,"\n"
     )
